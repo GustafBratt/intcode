@@ -12,6 +12,7 @@ repositories {
 }
 
 dependencies {
+	implementation("com.google.guava:guava:28.2-jre")
 	testImplementation('org.junit.jupiter:junit-jupiter:5.5.2')
 	testCompile("org.assertj:assertj-core:3.11.1")
 }

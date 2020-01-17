@@ -3,7 +3,6 @@ package gustafbratt.intcode;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.Map;
-import java.util.concurrent.CompletionService;
 import java.util.function.BiConsumer;
 
 public class Computer {
@@ -39,8 +38,7 @@ public class Computer {
             //Ignore
         }
         Opcode currentInst = Opcode.getByInt(opcode);
-        Instruction instruction = new Instruction(currentInst, val1, val2, val3);
-        return instruction;
+        return new Instruction(currentInst, val1, val2, val3);
     }
 
     public void run(){
@@ -49,31 +47,6 @@ public class Computer {
             if(instruction.opcode==Opcode.BYE)
                 return;
             instruction.opcode.executor.accept(this, instruction);
-
-            /*
-            switch (instruction.opcode) {
-
-                case ADD:
-                case MUL:
-                case INP:
-                case OUT:
-                case JTR:
-                    //int a1 = memory[pc+1];
-                    //memory[a1] = input.read();
-                    //memory[instruction.addr3] = instruction.val1 * instruction.val2;
-                    //memory[instruction.addr3] = instruction.val1 + instruction.val2;
-                    instruction.opcode.executor.accept(this, instruction);
-                    break;
-                case BYE:
-                    return;
-                default:
-                    System.out.println(instruction);
-                    System.out.println("pc: " + pc);
-                    printMemoryDump();
-                    throw new IllegalArgumentException();
-
-
-            }*/
             pc = pc + instruction.opcode.length;
         }
     }
