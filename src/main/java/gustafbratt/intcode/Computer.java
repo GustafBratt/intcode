@@ -11,11 +11,14 @@ public class Computer {
     InputOutput output;
     int pc = 0;
 
+    State state = State.INIT;
+
     public Computer(String inputString, InputOutput inputs, InputOutput outputs) {
         String[] strings = inputString.replace("\n","").split(",");
         memory = Arrays.stream(strings).map(Integer::parseInt).toArray(Integer[]::new);
         this.input = inputs;
         this.output = outputs;
+        this.state = State.INIT;
     }
 
     public Computer(String inputString) {
@@ -41,12 +44,20 @@ public class Computer {
         return new Instruction(currentInst, val1, val2, val3);
     }
 
-    public void run(){
+    public State run(){
+        state = State.RUNNING;
         while(true) {
             Instruction instruction = buildInstruction(pc);
-            if(instruction.opcode==Opcode.BYE)
-                return;
-            instruction.opcode.executor.accept(this, instruction);
+            if(instruction.opcode==Opcode.BYE) {
+                state = State.ENDED;
+                return state;
+            }
+            try {
+                instruction.opcode.executor.accept(this, instruction);
+            } catch (BlockingInputException e){
+                state = State.BLOCKED;
+                return state;
+            }
             pc = pc + instruction.opcode.length;
         }
     }
@@ -54,6 +65,10 @@ public class Computer {
     public int getCellZero() {
         return memory[0];
     }
+    public State getState() {
+        return state;
+    }
+
 
     public void printMemoryDump(){
         System.out.println("=== DUMP ==========");
@@ -115,7 +130,7 @@ class Instruction{
 enum Opcode {
     ADD(1,4, (computer, instruction) -> computer.memory[instruction.addr3] = instruction.val1 + instruction.val2),
     MUL(2,4, (computer, instruction) -> computer.memory[instruction.addr3] = instruction.val1 * instruction.val2),
-    INP(3,2, (computer, instruction) -> computer.memory[computer.memory[computer.pc+1]] = computer.input.read()),
+    INP(3,2, (computer, instruction) -> computer.memory[computer.memory[computer.pc + 1]] = computer.input.read()),
     OUT(4,2, (computer, instruction) -> computer.output.write(computer.memory[computer.memory[computer.pc+1]])),
     JTR(5,3, (computer, instruction) -> {if (instruction.val1!=0) computer.pc = instruction.val2 - 3;} ),
     JFL(6,3, (computer, instruction) -> {if (instruction.val1==0) computer.pc = instruction.val2 - 3;}),
@@ -165,7 +180,10 @@ class InputOutput {
     public void write(int i){
         list.addLast(i);
     }
-    public int read(){
+    public int read() throws BlockingInputException {
+        if(list.isEmpty()){
+            throw new BlockingInputException();
+        }
         return list.pollFirst();
     }
     public int getFinalOutput(){
@@ -174,4 +192,17 @@ class InputOutput {
     public boolean isEmpty(){
         return list.isEmpty();
     }
+
+    @Override
+    public String toString() {
+        return "InputOutput{" +
+            "list=" + list +
+            '}';
+    }
+}
+enum State {
+    INIT,
+    RUNNING,
+    BLOCKED,
+    ENDED
 }
