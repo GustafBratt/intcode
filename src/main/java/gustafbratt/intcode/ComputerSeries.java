@@ -2,6 +2,7 @@ package gustafbratt.intcode;
 
 import com.google.common.collect.Collections2;
 
+import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -15,7 +16,7 @@ public class ComputerSeries {
         this.program = program;
     }
     int runReturnOutput(){
-        int carry = 0;
+        BigInteger carry = BigInteger.ZERO;
         for(int phase: phases){
             InputOutput inputs = new InputOutput();
             inputs.write(phase);
@@ -25,7 +26,7 @@ public class ComputerSeries {
             c.run();
             carry = out.read();
         }
-        return carry;
+        return carry.intValue();
     }
     static int runAllCombinations(Integer[] phases, String program){
         List<Integer> integers = Arrays.asList(phases);
@@ -73,7 +74,7 @@ public class ComputerSeries {
         Collection<List<Integer>> permutations = Collections2.permutations(integers);
         int maxResult = 0;
         for(List<Integer> permutation : permutations){
-            int result = run5Computers(permutation.toArray(new Integer[] {}), program).read();
+            int result = run5Computers(permutation.toArray(new Integer[] {}), program).read().intValue();
             if(result > maxResult)
                 maxResult = result;
         }

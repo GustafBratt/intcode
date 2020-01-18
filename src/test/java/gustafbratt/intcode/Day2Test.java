@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.*;
 
 import java.io.File;
 import java.io.IOException;
+import java.math.BigInteger;
 import java.nio.file.Files;
 
 
@@ -14,10 +15,10 @@ class Day2Test {
         Computer c = new Computer("1,9,10,3,2,3,11,0,99,30,40,50");
         c.printMemoryDump();
         c.run();
-        int cellZero = c.getCellZero();
+        BigInteger cellZero = c.getCellZero();
         System.out.println("Cell zero: " + cellZero);
         c.printMemoryDump();
-        assertThat(cellZero).isEqualTo(3500);
+        assertThat(cellZero).isEqualTo(BigInteger.valueOf(3500));
     }
 
     @Test
@@ -30,7 +31,7 @@ class Day2Test {
         c.printMemoryDump();
         c.run();
         c.printMemoryDump();
-        int actual = c.getCellZero();
+        BigInteger actual = c.getCellZero();
         System.out.println(actual);
     }
 
@@ -54,7 +55,7 @@ class Day2Test {
         Computer c = new Computer(text);
         c.setTwoCells(noun, verb);
         c.run();
-        int actual = c.getCellZero();
-        return actual;
+        BigInteger actual = c.getCellZero();
+        return actual.intValue();
     }
 }

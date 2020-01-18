@@ -1,21 +1,33 @@
 package gustafbratt.intcode;
 
+import static java.math.BigInteger.ONE;
+import static java.math.BigInteger.TWO;
+import static java.math.BigInteger.ZERO;
+
+import java.math.BigInteger;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.function.BiConsumer;
 
 public class Computer {
-    Integer[] memory;
+    Map<BigInteger, BigInteger> memory;
     InputOutput input;
     InputOutput output;
-    int pc = 0;
+    BigInteger pc = ZERO;
 
     State state = State.INIT;
 
     public Computer(String inputString, InputOutput inputs, InputOutput outputs) {
         String[] strings = inputString.replace("\n","").split(",");
-        memory = Arrays.stream(strings).map(Integer::parseInt).toArray(Integer[]::new);
+        memory = new HashMap<>();
+        BigInteger[] programArray = Arrays.stream(strings).map(BigInteger::new).toArray(BigInteger[]::new);
+        BigInteger index = ZERO;
+        for(BigInteger cell : programArray){
+            memory.put(index, cell);
+            index = index.add(ONE);
+        }
         this.input = inputs;
         this.output = outputs;
         this.state = State.INIT;
@@ -25,18 +37,18 @@ public class Computer {
         this(inputString, null, null);
     }
 
-    private Instruction buildInstruction(int pc){
-        int num = memory[pc];
+    private Instruction buildInstruction(BigInteger pc){
+        int num = memory.get(pc).intValue();
         int opcode = num % 100;
         int mode1 = (int) (Math.floor((float)num / 100) % 10);
         int mode2 = (int) (Math.floor((float)num / 1000) % 10);
-        int val1 = -1;
-        int val2 = -1;
-        int val3 = -1;
+        BigInteger val1 = ZERO;
+        BigInteger val2 = ZERO;
+        BigInteger val3 = ZERO;
         try {
-            val1 = mode1 == 1 ? memory[pc + 1] : memory[memory[pc + 1]];
-            val2 = mode2 == 1 ? memory[pc + 2] : memory[memory[pc + 2]];
-            val3 = memory[pc+3];
+            val1 = mode1 == 1 ? memory.get(pc.add(ONE)) : memory.get(memory.get(pc.add(ONE)));
+            val2 = mode2 == 1 ? memory.get(pc.add(TWO)) : memory.get(memory.get(pc.add(TWO)));
+            val3 = memory.get(pc.add(BigInteger.TWO).add(ONE));
         }catch(ArrayIndexOutOfBoundsException e){
             //Ignore
         }
@@ -58,12 +70,12 @@ public class Computer {
                 state = State.BLOCKED;
                 return state;
             }
-            pc = pc + instruction.opcode.length;
+            pc = pc.add(BigInteger.valueOf(instruction.opcode.length));
         }
     }
 
-    public int getCellZero() {
-        return memory[0];
+    public BigInteger getCellZero() {
+        return memory.get(ZERO);
     }
     public State getState() {
         return state;
@@ -72,8 +84,11 @@ public class Computer {
 
     public void printMemoryDump(){
         System.out.println("=== DUMP ==========");
-        int index = 0;
-        while(index < memory.length){
+        for(BigInteger key : memory.keySet()){
+            System.out.println(key + ": " + memory.get(key));
+        }
+/*        int index = 0;
+        while(index < memory.size()){
             System.out.print(index + "\t");
             Instruction instruction = buildInstruction(index);
             Opcode currentInst = Opcode.getByInt(memory[index] % 100);
@@ -88,28 +103,32 @@ public class Computer {
                 index += currentInst.length;
             }
             System.out.println("");
-        }
+        }*/
         System.out.println("=== END ===========");
     }
 
     public void setTwoCells(int i, int i1) {
-        memory[1] = i;
-        memory[2] = i1;
+        memory.put(ONE, BigInteger.valueOf(i));
+        memory.put(TWO, BigInteger.valueOf(i1));
+    }
+
+    public BigInteger getMemCell(BigInteger i) {
+        return memory.get(i);
     }
 
     public int getMemCell(int i) {
-        return memory[i];
+        return memory.get(BigInteger.valueOf(i)).intValue();
     }
 
 }
 
 class Instruction{
     Opcode opcode;
-    int val1;
-    int val2;
-    int addr3;
+    BigInteger val1;
+    BigInteger val2;
+    BigInteger addr3;
 
-    public Instruction(Opcode opcode, int val1, int val2, int addr3) {
+    public Instruction(Opcode opcode, BigInteger val1, BigInteger val2, BigInteger addr3) {
         this.opcode = opcode;
         this.val1 = val1;
         this.val2 = val2;
@@ -128,24 +147,33 @@ class Instruction{
 }
 
 enum Opcode {
-    ADD(1,4, (computer, instruction) -> computer.memory[instruction.addr3] = instruction.val1 + instruction.val2),
-    MUL(2,4, (computer, instruction) -> computer.memory[instruction.addr3] = instruction.val1 * instruction.val2),
-    INP(3,2, (computer, instruction) -> computer.memory[computer.memory[computer.pc + 1]] = computer.input.read()),
-    OUT(4,2, (computer, instruction) -> computer.output.write(computer.memory[computer.memory[computer.pc+1]])),
-    JTR(5,3, (computer, instruction) -> {if (instruction.val1!=0) computer.pc = instruction.val2 - 3;} ),
-    JFL(6,3, (computer, instruction) -> {if (instruction.val1==0) computer.pc = instruction.val2 - 3;}),
+    //ADD(1,4, (computer, instruction) -> computer.memory[instruction.addr3] = instruction.val1 + instruction.val2),
+    ADD(1,4, (computer, instruction) -> computer.memory.put(instruction.addr3, instruction.val1.add(instruction.val2))),
+    //MUL(2,4, (computer, instruction) -> computer.memory[instruction.addr3] = instruction.val1 * instruction.val2),
+    MUL(1,4, (computer, instruction) -> computer.memory.put(instruction.addr3, instruction.val1.multiply(instruction.val2))),
+    //INP(3,2, (computer, instruction) -> computer.memory[computer.memory[computer.pc + 1]] = computer.input.read()),
+    INP(3,2, (computer, instruction) -> {
+        //BigInteger addr = computer.pc.add(ONE);
+        computer.memory.put(computer.memory.get(computer.pc.add(ONE)), computer.input.read());
+    }),
+    //OUT(4,2, (computer, instruction) -> computer.output.write(computer.memory[computer.memory[computer.pc+1]])),
+    OUT(4,2, (computer, instruction) -> computer.output.write(computer.memory.get(computer.memory.get(computer.pc.add(ONE))))),
+    //JTR(5,3, (computer, instruction) -> {if (instruction.val1!=0) computer.pc = instruction.val2 - 3;} ),
+    JTR(5,3, (computer, instruction) -> {if (!instruction.val1.equals(ZERO)) computer.pc = instruction.val2.subtract(BigInteger.valueOf(3));} ),
+    //JFL(6,3, (computer, instruction) -> {if (instruction.val1==0) computer.pc = instruction.val2 - 3;}),
+    JFL(6,3, (computer, instruction) -> {if (instruction.val1.equals(ZERO)) computer.pc = instruction.val2.subtract(BigInteger.valueOf(3));}),
     LST(7,4,(computer, instruction) -> {
-        if(instruction.val1 < instruction.val2 ){
-            computer.memory[instruction.addr3] = 1;
+        if(instruction.val1.compareTo(instruction.val2) == -1){
+            computer.memory.put(instruction.addr3,ONE);
         }else{
-            computer.memory[instruction.addr3] = 0;
+            computer.memory.put(instruction.addr3, ZERO);
         }
     }),
     EQS(8,4,(computer, instruction) -> {
-        if(instruction.val1 == instruction.val2 ){
-            computer.memory[instruction.addr3] = 1;
+        if(instruction.val1.equals(instruction.val2) ){
+            computer.memory.put(instruction.addr3, ONE);
         }else{
-            computer.memory[instruction.addr3] = 0;
+            computer.memory.put(instruction.addr3, ZERO);
         }
     }),
     BYE( 99,1,null),
@@ -176,17 +204,20 @@ enum Opcode {
 }
 
 class InputOutput {
-    LinkedList<Integer> list = new LinkedList<>();
-    public void write(int i){
+    LinkedList<BigInteger> list = new LinkedList<>();
+    public void write(BigInteger i){
         list.addLast(i);
     }
-    public int read() throws BlockingInputException {
+    public void write(int i){
+        list.addLast(BigInteger.valueOf(i));
+    }
+    public BigInteger read() throws BlockingInputException {
         if(list.isEmpty()){
             throw new BlockingInputException();
         }
         return list.pollFirst();
     }
-    public int getFinalOutput(){
+    public BigInteger getFinalOutput(){
         return list.getLast();
     }
     public boolean isEmpty(){
