@@ -14,6 +14,7 @@ import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
 public class Computer {
+    private static final BigInteger THREE = BigInteger.valueOf(3);
     Map<BigInteger, BigInteger> memory;
 
     InputOutput input;
@@ -64,6 +65,7 @@ public class Computer {
         int opcode = num % 100;
         int mode1 = (int) (Math.floor((float)num / 100) % 10);
         int mode2 = (int) (Math.floor((float)num / 1000) % 10);
+        int mode3 = (int) (Math.floor((float)num / 10000) % 10);
         BigInteger val1 = null;
         BigInteger val2 = null;
         BigInteger val3 = null;
@@ -78,8 +80,13 @@ public class Computer {
                     val1 = memory.get(pc.add(ONE));
                     break;
                 case 2: //Relative
-                    val1 = memory.get(relativeBase.add(memory.get(pc.add(ONE))));
+                    BigInteger value = memory.get(pc.add(ONE));
+                    if(value!=null) {
+                        val1 = memory.get(relativeBase.add(value));
+                    }
                     break;
+                default:
+                    //Ignore
             }
             switch (mode2){
                 case 0: //Indirect
@@ -89,15 +96,35 @@ public class Computer {
                     val2 = memory.get(pc.add(TWO));
                     break;
                 case 2: //Relative
-                    val2 = memory.get(relativeBase.add(memory.get(pc.add(TWO))));
+                    BigInteger value = memory.get(pc.add(TWO));
+                    if(value!=null) {
+                        val2 = memory.get(relativeBase.add(value));
+                    }
                     break;
+                default:
+                    //ignore
             }
-            val3 = memory.get(pc.add(BigInteger.valueOf(3)));
+            switch (mode3){
+                case 0: //Indirect
+                //    val3 = memory.get(memory.get(pc.add(THREE)));
+                //    break;
+                case 1: //Direct
+                    val3 = memory.get(pc.add(THREE));
+                    break;
+                case 2: //Relative
+                    BigInteger value = memory.get(pc.add(THREE));
+                    if(value!=null) {
+                        val3 = relativeBase.add(value);
+                    }
+                    break;
+                default:
+                    //ignore
+            }
         }catch(ArrayIndexOutOfBoundsException e){
             //Ignore
         }
         Opcode currentInst = Opcode.getByInt(opcode);
-        return new Instruction(currentInst, val1, val2, val3);
+        return new Instruction(currentInst, val1, val2, val3, mode1, mode2, mode3);
     }
 
     public State run(){
@@ -109,6 +136,7 @@ public class Computer {
                 return state;
             }
             try {
+                //System.out.println("Executing " + pc + " " + instruction.opcode);
                 instruction.opcode.executor.accept(this, instruction);
             } catch (BlockingInputException e){
                 state = State.BLOCKED;
@@ -133,8 +161,9 @@ public class Computer {
 
     public void printMemoryDump(){
         System.out.println("=== DUMP ==========");
+        System.out.println("adr\traw\t\topcode");
         int index = 0;
-        while(!BigInteger.valueOf(99).equals(memory.get(BigInteger.valueOf(index))) && memory.get(BigInteger.valueOf(index))!=null ){
+        while(memory.get(BigInteger.valueOf(index))!=null){
             Instruction instr = buildInstruction(BigInteger.valueOf(index));
             System.out.print(index + "\t");
             System.out.print(memory.get(BigInteger.valueOf(index)) + "\t");
@@ -144,7 +173,21 @@ public class Computer {
                 index++;
             }else {
                 for (int i = 1; i < instr.opcode.length; i++) {
-                    System.out.print("\t" + memory.get(BigInteger.valueOf(index + i)));
+                    System.out.print("\t");
+                    if(instr.mode1 == 0 && i==1){
+                        System.out.print("*");
+                    }
+                    if(instr.mode1 == 2 && i==1){
+                        System.out.print("+");
+                    }
+
+                    if(instr.mode2 == 0 && i==2){
+                        System.out.print("*");
+                    }
+                    if(i==3 && instr.mode3==2){
+                        System.out.print("+");
+                    }
+                    System.out.print(memory.get(BigInteger.valueOf(index + i)));
                 }
                 index += instr.opcode.length;
                 System.out.println();
@@ -172,13 +215,19 @@ class Instruction{
     Opcode opcode;
     BigInteger val1;
     BigInteger val2;
-    BigInteger addr3;
+    BigInteger val3;
+    int mode1;
+    int mode2;
+    int mode3;
 
-    public Instruction(Opcode opcode, BigInteger val1, BigInteger val2, BigInteger addr3) {
+    public Instruction(Opcode opcode, BigInteger val1, BigInteger val2, BigInteger val3, int mode1, int mode2, int mode3) {
         this.opcode = opcode;
         this.val1 = val1;
         this.val2 = val2;
-        this.addr3 = addr3;
+        this.val3 = val3;
+        this.mode1 = mode1;
+        this.mode2 = mode2;
+        this.mode3 = mode3;
     }
 
     @Override
@@ -187,49 +236,62 @@ class Instruction{
             "opcode=" + opcode +
             ", val1=" + val1 +
             ", val2=" + val2 +
-            ", addr3=" + addr3 +
+            ", val3=" + val3 +
             '}';
     }
 }
 
 enum Opcode {
-    ADD(1,4, (computer, instruction) -> computer.memory.put(instruction.addr3, instruction.val1.add(instruction.val2))),
-    MUL(2,4, (computer, instruction) -> computer.memory.put(instruction.addr3, instruction.val1.multiply(instruction.val2))),
+    ADD(1,4, (computer, instruction) -> computer.memory.put(instruction.val3, instruction.val1.add(instruction.val2))),
+    MUL(2,4, (computer, instruction) -> computer.memory.put(instruction.val3, instruction.val1.multiply(instruction.val2))),
     INP(3,2, (computer, instruction) -> {
-        computer.memory.put(computer.memory.get(computer.pc.add(ONE)), computer.input.read());
+        switch (instruction.mode1) {
+            case 0:
+                computer.memory.put(computer.memory.get(computer.pc.add(ONE)), computer.input.read());
+                break;
+            case 1:
+                throw new IllegalStateException("input with direct addressing " + computer.pc);
+            case 2:
+                System.out.println(computer.pc + " Input to address " + computer.relativeBase + " + " +computer.memory.get(computer.pc.add(ONE)) );
+                computer.memory.put(computer.relativeBase.add(computer.memory.get(computer.pc.add(ONE))), computer.input.read());
+                break;
+        }
     }),
     OUT(4,2, (computer, instruction) -> computer.output.write(instruction.val1)),
     JTR(5,3, (computer, instruction) -> {if (!instruction.val1.equals(ZERO)) computer.pc = instruction.val2.subtract(BigInteger.valueOf(3));} ),
     JFL(6,3, (computer, instruction) -> {if (instruction.val1.equals(ZERO)) computer.pc = instruction.val2.subtract(BigInteger.valueOf(3));}),
     LST(7,4,(computer, instruction) -> {
-        if(instruction.val1.compareTo(instruction.val2) == -1){
-            computer.memory.put(instruction.addr3,ONE);
+        if(instruction.val1.compareTo(instruction.val2) < 0){
+            computer.memory.put(instruction.val3,ONE);
         }else{
-            computer.memory.put(instruction.addr3, ZERO);
+            computer.memory.put(instruction.val3, ZERO);
         }
     }),
     EQS(8,4,(computer, instruction) -> {
         if(instruction.val1.equals(instruction.val2) ){
-            computer.memory.put(instruction.addr3, ONE);
+            computer.memory.put(instruction.val3, ONE);
         }else{
-            computer.memory.put(instruction.addr3, ZERO);
+            computer.memory.put(instruction.val3, ZERO);
         }
     }),
-    RLB(9, 2, (computer, instruction) -> computer.relativeBase = computer.relativeBase.add(instruction.val1)),
+    RLB(9, 2, (computer, instruction) -> {
+        computer.relativeBase = computer.relativeBase.add(instruction.val1);
+        //System.out.println(computer.pc + " Adding " + instruction.val1 + " to relative base. Value: " + computer.relativeBase);
+    }),
     BYE( 99,1,null),
     ;
     int opcodeNumber;
     int length;
     BiConsumer<Computer, Instruction> executor;
-    Opcode(int opcode, int lenght, BiConsumer<Computer, Instruction> executor) {
+    Opcode(int opcode, int length, BiConsumer<Computer, Instruction> executor) {
         this.opcodeNumber = opcode;
-        this.length = lenght;
+        this.length = length;
         this.executor = executor;
     }
 
     private static final Map<Integer, Opcode> opcodes = Maps.uniqueIndex(
         Arrays.asList(Opcode.values()),
-        Opcode::getOpcodeNumber
+        opcode -> opcode != null ? opcode.getOpcodeNumber() : 0
     );
 
     public static Opcode getByInt(int i){
@@ -271,7 +333,7 @@ class InputOutput {
 
     @Override
     public String toString() {
-        return String.join(",", list.stream().map(x -> x.toString()).collect(Collectors.toList()));
+        return list.stream().map(BigInteger::toString).collect(Collectors.joining(","));
     }
 }
 enum State {
