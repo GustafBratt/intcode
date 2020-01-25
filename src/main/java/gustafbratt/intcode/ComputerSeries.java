@@ -23,7 +23,7 @@ public class ComputerSeries {
             inputs.write(carry);
             InputOutput out = new InputOutput();
             Computer c = new Computer(program, inputs, out);
-            c.run();
+            c.runUntilBlockedOrEnd();
             carry = out.read();
         }
         return carry.intValue();
@@ -59,12 +59,11 @@ public class ComputerSeries {
         Computer ampD = new Computer(program, io4, io5);
         Computer ampE = new Computer(program, io5, io1);
         while(ampE.getState()!= State.ENDED){
-            ampA.run();
-            ampB.run();
-            ampC.run();
-            ampD.run();
-            ampE.run();
-            System.out.println("Looping");
+            ampA.runUntilBlockedOrEnd();
+            ampB.runUntilBlockedOrEnd();
+            ampC.runUntilBlockedOrEnd();
+            ampD.runUntilBlockedOrEnd();
+            ampE.runUntilBlockedOrEnd();
         }
         return io1;
     }

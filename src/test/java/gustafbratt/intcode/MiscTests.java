@@ -11,7 +11,7 @@ public class MiscTests {
         String program = "21101,1,1,10,99";
         Computer c = new Computer(program);
         c.printMemoryDump();
-        c.run();
+        c.runUntilBlockedOrEnd();
         c.printMemoryDump();
         assertThat(c.memory.get(BigInteger.valueOf(10))).isEqualTo(BigInteger.TWO);
     }
@@ -33,14 +33,14 @@ public class MiscTests {
 
     @Test
     public void blockingInupt() {
-        String program = "3,3,99,0";
+        String program = "3,3,99,0,0";
         InputOutput in = new InputOutput();
         Computer c = new Computer(program, in, new InputOutput());
         c.printMemoryDump();
-        State state = c.run();
+        State state = c.runUntilBlockedOrEnd();
         assertThat(state).isEqualTo(State.BLOCKED);
         in.write(242);
-        state = c.run();
+        state = c.runUntilBlockedOrEnd();
         assertThat(state).isEqualTo(State.ENDED);
         c.printMemoryDump();
         assertThat(c.getMemCell(BigInteger.valueOf(3))).isEqualTo(BigInteger.valueOf(242));
