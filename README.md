@@ -11,6 +11,8 @@ Build with
 ```./gradlew build```
 There is no main method. All code is run through unit tests.
 
+IntelliJ IDEA 2019.3 or later is needed.
+
 
 ## Day 2 ##
 ```
