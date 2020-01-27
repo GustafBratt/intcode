@@ -13,12 +13,16 @@ class Day2Test {
     @Test
     public void example1() {
         Computer c = new Computer("1,9,10,3,2,3,11,0,99,30,40,50");
-        c.printMemoryDump();
         c.runUntilBlockedOrEnd();
         BigInteger cellZero = c.getCellZero();
-        System.out.println("Cell zero: " + cellZero);
-        c.printMemoryDump();
         assertThat(cellZero).isEqualTo(BigInteger.valueOf(3500));
+    }
+
+    @Test
+    public void example2(){
+        Computer c = new Computer("1,0,0,0,99");
+        c.runUntilBlockedOrEnd();
+        assertThat(c.getCellZero().intValue()).isEqualTo(2);
     }
 
     @Test
@@ -26,11 +30,8 @@ class Day2Test {
         String program = Resources.toString(Resources.getResource("day2.txt"), StandardCharsets.UTF_8);
         Computer c = new Computer(program);
         c.setTwoCells(12, 2);
-        c.printMemoryDump();
         c.runUntilBlockedOrEnd();
-        c.printMemoryDump();
         BigInteger actual = c.getCellZero();
-        System.out.println(actual);
     }
 
     @Test
@@ -43,7 +44,6 @@ class Day2Test {
                     solution =  (noun * 100) + verb;
             }
         }
-        System.out.println("sol " + solution);
         assertThat(solution).isEqualTo(5296);
     }
     private int runWithNounAndVerb(int noun, int verb) throws IOException {

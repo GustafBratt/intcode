@@ -17,10 +17,10 @@ public class Computer {
     private static final Logger LOGGER = Logger.getLogger(Computer.class.getName());
 
     private static final BigInteger THREE = BigInteger.valueOf(3);
-    Map<BigInteger, BigInteger> memory;
+    final Map<BigInteger, BigInteger> memory;
 
-    InputOutput input;
-    InputOutput output;
+    final InputOutput input;
+    final InputOutput output;
     BigInteger pc = ZERO;
 
     State state = State.INIT;
@@ -62,66 +62,10 @@ public class Computer {
     }
 
 
-    private Instruction buildInstruction(BigInteger pc){
-        int num = memory.get(pc).intValue();
-        int opcode = num % 100;
-        int mode1 = (int) (Math.floor((float)num / 100) % 10);
-        int mode2 = (int) (Math.floor((float)num / 1000) % 10);
-        int mode3 = (int) (Math.floor((float)num / 10000) % 10);
-        BigInteger val1 = null;
-        BigInteger val2 = null;
-        BigInteger val3 = null;
-        try {
-            switch (mode1){
-                case 0: //Indirect
-                    val1 = memory.get(memory.get(pc.add(ONE)));
-                    if(val1 == null)
-                        val1 = ZERO;
-                    break;
-                case 1: //Direct
-                    val1 = memory.get(pc.add(ONE));
-                    break;
-                case 2: //Relative
-                    val1 = memory.get(relativeBase.add(memory.get(pc.add(ONE))));
-                    break;
-                default:
-                    //Ignore
-            }
-            switch (mode2){
-                case 0: //Indirect
-                    val2 = memory.get(memory.get(pc.add(TWO)));
-                    break;
-                case 1: //Direct
-                    val2 = memory.get(pc.add(TWO));
-                    break;
-                case 2: //Relative
-                    val2 = memory.get(relativeBase.add(memory.get(pc.add(TWO))));
-                    break;
-                default:
-                    //ignore
-            }
-            switch (mode3){
-                case 0: //Indirect
-                case 1: //Direct
-                    val3 = memory.get(pc.add(THREE));
-                    break;
-                case 2: //Relative
-                    val3 = relativeBase.add(memory.get(pc.add(THREE)));
-                    break;
-                default:
-                    //ignore
-            }
-        }catch(ArrayIndexOutOfBoundsException e){
-            //Ignore
-        }
-        Opcode currentInst = Opcode.getByInt(opcode);
-        return new Instruction(currentInst, val1, val2, val3, mode1, mode2, mode3);
-    }
-
     public State runUntilBlockedOrEnd(){
         state = State.RUNNING;
         while(true) {
-            Instruction instruction = buildInstruction(pc);
+            Instruction instruction = new Instruction(this, pc);
             if(instruction.opcode==Opcode.BYE) {
                 state = State.ENDED;
                 return state;
@@ -134,7 +78,7 @@ public class Computer {
             } catch (NullPointerException e){
                 LOGGER.log(Level.SEVERE, "PC: " + pc);
                 LOGGER.log(Level.SEVERE, "Instr: " + instruction);
-                printMemoryDump();
+                LOGGER.log(Level.SEVERE, getRawMemoryDump());
                 throw e;
             }
             pc = pc.add(BigInteger.valueOf(instruction.opcode.length));
@@ -149,22 +93,33 @@ public class Computer {
     }
 
 
-    public void printMemoryDump(){
-        System.out.println("=== DUMP ==========");
+    public String getRawMemoryDump() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("=== DUMP ==========\n");
+        for (BigInteger key : memory.keySet()) {
+            sb.append(key).append("\t").append(memory.get(key)).append("\n");
+        }
+        sb.append("=== END ===========\n");
+        return sb.toString();
+    }
+
+    public String getDisassembledDump(){
+        StringBuilder sb = new StringBuilder();
         int index = 0;
         while(memory.get(BigInteger.valueOf(index))!=null) {
-            Instruction instr = buildInstruction(BigInteger.valueOf(index));
-            System.out.print(String.format("%-4s %4s ", index, memory.get(BigInteger.valueOf(index))));
-            if(instr.opcode == null) {
-                System.out.println("");
-                index++;
-            } else {
-                System.out.println(instr);
+            try {
+                Instruction instr = new Instruction(this, BigInteger.valueOf(index));
+                sb.append(String.format("%-4s %05d ", index, memory.get(BigInteger.valueOf(index))));
+                sb.append(instr).append("\n");
                 index += instr.opcode.length;
+            }catch(IllegalArgumentException e){
+                sb.append(String.format("%-4s %5s ", index, memory.get(BigInteger.valueOf(index))));
+                sb.append("\n");
+                index++;
             }
 
-
         }
+        return sb.toString();
     }
 
     public void setTwoCells(int i, int i1) {
@@ -181,81 +136,101 @@ public class Computer {
     }
 
     void doAdd(Instruction instruction){
-        memory.put(instruction.val3, instruction.val1.add(instruction.val2));
+        memory.put(instruction.writes[2], instruction.reads[0].add(instruction.reads[1]));
     }
     void doMul(Instruction instruction){
-        memory.put(instruction.val3, instruction.val1.multiply(instruction.val2));
+        memory.put(instruction.writes[2], instruction.reads[0].multiply(instruction.reads[1]));
     }
     void doInp(Instruction instruction){
-        switch (instruction.mode1) {
-            case 0:
-                memory.put(memory.get(pc.add(ONE)), input.read());
-                break;
-            case 1:
-                throw new IllegalStateException("input with direct addressing " + pc);
-            case 2:
-                memory.put(relativeBase.add(memory.get(pc.add(ONE))), input.read());
-                break;
-        }
+        memory.put(instruction.writes[0], input.read());
     }
     void doOut(Instruction instruction){
-        output.write(instruction.val1);
+        output.write(instruction.reads[0]);
     }
     void doJTR(Instruction instruction){
-        if (!instruction.val1.equals(ZERO))
-            pc = instruction.val2.subtract(THREE);
+        if (!instruction.reads[0].equals(ZERO))
+            pc = instruction.reads[1].subtract(THREE);
     }
     void doJFL(Instruction instruction){
-        if (instruction.val1.equals(ZERO))
-            pc = instruction.val2.subtract(BigInteger.valueOf(3));
+        if (instruction.reads[0].equals(ZERO))
+            pc = instruction.reads[1].subtract(BigInteger.valueOf(3));
     }
     void doLST(Instruction instruction){
-        if(instruction.val1.compareTo(instruction.val2) < 0){
-            memory.put(instruction.val3,ONE);
+        if(instruction.reads[0].compareTo(instruction.reads[1]) < 0){
+            memory.put(instruction.writes[2],ONE);
         }else{
-            memory.put(instruction.val3, ZERO);
+            memory.put(instruction.writes[2], ZERO);
         }
     }
     void doEQS(Instruction instruction){
-        if(instruction.val1.equals(instruction.val2) ){
-            memory.put(instruction.val3, ONE);
+        if(instruction.reads[0].equals(instruction.reads[1]) ){
+            memory.put(instruction.writes[2], ONE);
         }else{
-            memory.put(instruction.val3, ZERO);
+            memory.put(instruction.writes[2], ZERO);
         }
     }
     void doRLB(Instruction instruction){
-        relativeBase = relativeBase.add(instruction.val1);
+        relativeBase = relativeBase.add(instruction.reads[0]);
     }
 }
 
 class Instruction{
-    Opcode opcode;
-    BigInteger val1;
-    BigInteger val2;
-    BigInteger val3;
-    int mode1;
-    int mode2;
-    int mode3;
+    final Opcode opcode;
+    final BigInteger[] writes;
+    final BigInteger[] reads;
+    final BigInteger[] raws; //For debugging purposes
+    final int[] modes;
 
-    public Instruction(Opcode opcode, BigInteger val1, BigInteger val2, BigInteger val3, int mode1, int mode2, int mode3) {
-        this.opcode = opcode;
-        this.val1 = val1;
-        this.val2 = val2;
-        this.val3 = val3;
-        this.mode1 = mode1;
-        this.mode2 = mode2;
-        this.mode3 = mode3;
+    Instruction(Computer computer, BigInteger base){
+        Map<BigInteger, BigInteger> memory = computer.memory;
+        BigInteger relativeBase = computer.relativeBase;
+        int num = memory.get(base).intValue();
+        opcode = Opcode.getByInt(num % 100);
+        if(opcode==null)
+            throw new IllegalArgumentException("Cant build opcode of " + num);
+        modes = new int[3];
+        reads = new BigInteger[3];
+        writes = new BigInteger[3];
+        raws = new BigInteger[3];
+        modes[0] = (int) (Math.floor((float)num / 100) % 10);
+        modes[1] = (int) (Math.floor((float)num / 1000) % 10);
+        modes[2] = (int) (Math.floor((float)num / 10000) % 10);
+        for(int offset = 0; offset < 3; offset++){
+            BigInteger rawValue = base.add(BigInteger.valueOf(offset + 1));
+            raws[offset] = memory.get(rawValue);
+            switch (modes[offset]){
+                case 0: //Indirect
+                    writes[offset] = memory.get(rawValue);
+                    reads[offset] = memory.get(memory.get(rawValue));
+                    if(reads[offset] == null){ //Lazy initialize all memory to 0
+                        reads[offset] = ZERO;
+                    }
+                    break;
+                case 1: //Direct
+                    reads[offset] = memory.get(rawValue);
+                    break;
+                case 2: //Relative
+                    writes[offset] = relativeBase.add(memory.get(rawValue));
+                    reads[offset] = memory.get(relativeBase.add(memory.get(rawValue)));
+                default:
+                    //Ignore
+            }
+
+        }
     }
+
 
     @Override
     public String toString() {
+        String[] mods = {"*","","+"};
+
         switch (opcode.length){
             case 2:
-                return String.format("%s %8s", opcode, val1);
+                return String.format("%s %9s", opcode, mods[modes[0]] + raws[0]);
             case 3:
-                return String.format("%s %8s %8s", opcode, val1, val2);
+                return String.format("%s %9s %9s", opcode, mods[modes[0]] + raws[0], mods[modes[1]] + raws[1]);
             case 4:
-                return String.format("%s %8s %8s %8s", opcode, val1, val2, val3);
+                return String.format("%s %9s %9s %9s", opcode, mods[modes[0]] + raws[0], mods[modes[1]] + raws[1], mods[modes[2]] + raws[2]);
             default:
                 return opcode.toString();
         }
@@ -276,9 +251,9 @@ enum Opcode {
     BYE( 99,1,null),
     ;
 
-    int opcodeNumber;
-    int length;
-    BiConsumer<Computer, Instruction> executor;
+    final int opcodeNumber;
+    final int length;
+    final BiConsumer<Computer, Instruction> executor;
 
     Opcode(int opcode, int length, BiConsumer<Computer, Instruction> executor) {
         this.opcodeNumber = opcode;

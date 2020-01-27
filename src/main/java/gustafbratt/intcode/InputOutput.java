@@ -5,7 +5,7 @@ import java.util.LinkedList;
 import java.util.stream.Collectors;
 
 class InputOutput {
-    LinkedList<BigInteger> list = new LinkedList<>();
+    final LinkedList<BigInteger> list = new LinkedList<>();
 
     public InputOutput(int i) {
         this.write(i);

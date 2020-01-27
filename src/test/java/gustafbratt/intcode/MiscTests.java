@@ -1,18 +1,19 @@
 package gustafbratt.intcode;
 
+import com.google.common.io.Resources;
 import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
 import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
 
 public class MiscTests {
     @Test
     public void addDirectToRelative(){
         String program = "21101,1,1,10,99";
         Computer c = new Computer(program);
-        c.printMemoryDump();
         c.runUntilBlockedOrEnd();
-        c.printMemoryDump();
         assertThat(c.memory.get(BigInteger.valueOf(10))).isEqualTo(BigInteger.TWO);
     }
 
@@ -36,13 +37,27 @@ public class MiscTests {
         String program = "3,3,99,0,0";
         InputOutput in = new InputOutput();
         Computer c = new Computer(program, in, new InputOutput());
-        c.printMemoryDump();
         State state = c.runUntilBlockedOrEnd();
         assertThat(state).isEqualTo(State.BLOCKED);
         in.write(242);
         state = c.runUntilBlockedOrEnd();
         assertThat(state).isEqualTo(State.ENDED);
-        c.printMemoryDump();
         assertThat(c.getMemCell(BigInteger.valueOf(3))).isEqualTo(BigInteger.valueOf(242));
+    }
+
+    @Test
+    public void testRawDump(){
+        String program = "21101,1,1,10,99";
+        Computer c = new Computer(program);
+        String rawMemoryDump = c.getRawMemoryDump();
+        assertThat(rawMemoryDump).contains("0\t21101").contains("4\t99");
+    }
+
+    @Test
+    public void testDisassembleDump() throws IOException {
+        String program = Resources.toString(Resources.getResource("day9.txt"), StandardCharsets.UTF_8);
+        Computer c = new Computer(program);
+        String disassembledDump = c.getDisassembledDump();
+        assertThat(disassembledDump).contains("0    01102 MUL  34463338  34463338       *63");
     }
 }

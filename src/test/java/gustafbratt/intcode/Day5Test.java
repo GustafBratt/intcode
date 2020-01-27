@@ -14,8 +14,6 @@ public class Day5Test {
 
         Computer c = new Computer(program, new InputOutput(1));
         c.runUntilBlockedOrEnd();
-        System.out.println("Final output:" );
-        System.out.println(c.getOutput().getFinalOutput());
         assertThat(c.getOutput().getFinalOutput()).isEqualTo(16209841);
     }
     @Test
@@ -28,9 +26,7 @@ public class Day5Test {
     @Test
     void example2(){
         Computer c = new Computer("1101,100,-1,4,0");
-        c.printMemoryDump();
         c.runUntilBlockedOrEnd();
-        c.printMemoryDump();
         assertThat(c.getMemCell(4)).isEqualTo(99);
     }
 
@@ -39,8 +35,6 @@ public class Day5Test {
         String program = Resources.toString(Resources.getResource("day5.txt"), StandardCharsets.UTF_8);
         Computer c = new Computer(program, new InputOutput(5));
         c.runUntilBlockedOrEnd();
-        System.out.println("Final output:" );
-        System.out.println(c.getOutput().getFinalOutput());
         assertThat(c.getOutput().getFinalOutput()).isEqualTo(8834787);
     }
 }
