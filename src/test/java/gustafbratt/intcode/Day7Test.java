@@ -8,8 +8,8 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
 public class Day7Test {
-    Integer[] phasesPart1 = new Integer[] {0, 1, 2, 3, 4};
-    Integer[] phasesPart2 = new Integer[] {5, 6, 7, 8, 9};
+    Integer[] phasesPart1 = {0, 1, 2, 3, 4};
+    Integer[] phasesPart2 = {5, 6, 7, 8, 9};
 
     @Test
     public void example1(){
@@ -57,5 +57,6 @@ public class Day7Test {
     void problem2() throws IOException {
         String program = Resources.toString(Resources.getResource("day7.txt"), StandardCharsets.UTF_8);
         int result = FeedbackAmplifier.findMaxOutput(phasesPart2, program);
+        assertThat(result).isEqualTo(22476942);
     }
 }
